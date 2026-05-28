@@ -32,6 +32,12 @@ export default class PlayerController extends cc.Component {
 
 	private rb: cc.RigidBody = null;
 	private anim: cc.Animation = null;
+	private sprite: cc.Sprite = null;
+	private smallAtlas: cc.SpriteAtlas = null;
+	private bigAtlas: cc.SpriteAtlas = null;
+	private currentAnimName: string = '';
+	private animTimer: number = 0;
+	private animFrameIndex: number = 0;
 	private moveDirection: number = 0;
 	private groundContactCount: number = 0;
 	private isBig: boolean = false;
@@ -42,9 +48,11 @@ export default class PlayerController extends cc.Component {
 	onLoad() {
 		this.rb = this.getComponent(cc.RigidBody);
 		this.anim = this.getComponent(cc.Animation);
+		this.sprite = this.getComponent(cc.Sprite);
 		this.initialPosition = cc.v2(this.node.x, this.node.y);
 
 		if (this.rb) this.rb.enabledContactListener = true;
+		this.loadSpriteAtlases();
 
 		cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
 		cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this.onKeyUp, this);
@@ -106,6 +114,7 @@ export default class PlayerController extends cc.Component {
 		this.groundContactCount = 0;
 
 		if (this.jumpSound) this.jumpSound.play();
+		else GameManager.playEffect('audio/jump');
 		this.playAnimation('jump');
 	}
 
@@ -117,12 +126,14 @@ export default class PlayerController extends cc.Component {
 		if (!GameManager.instance || !GameManager.instance.isPlaying || this.isDeadOrReborn) {
 			const v = this.rb.linearVelocity;
 			this.rb.linearVelocity = cc.v2(0, v.y);
+			this.updateFrameAnimation(dt);
 			return;
 		}
 
 		const v = this.rb.linearVelocity;
 		this.rb.linearVelocity = cc.v2(this.moveDirection * this.moveSpeed, v.y);
 		this.updateAnimation();
+		this.updateFrameAnimation(dt);
 
 		if (this.node.y < this.fallDeathY) {
 			this.takeDamage(true);
@@ -232,8 +243,10 @@ export default class PlayerController extends cc.Component {
 		this.isBig = true;
 		this.node.scaleX = this.node.scaleX < 0 ? -1.5 : 1.5;
 		this.node.scaleY = 1.5;
+		this.node.setContentSize(40, 64);
 
 		if (this.powerUpSound) this.powerUpSound.play();
+		else GameManager.playEffect('audio/PowerUp');
 		if (GameManager.instance) GameManager.instance.addScore(1000);
 	}
 
@@ -244,6 +257,8 @@ export default class PlayerController extends cc.Component {
 			this.isBig = false;
 			this.node.scaleX = this.node.scaleX < 0 ? -1 : 1;
 			this.node.scaleY = 1;
+			this.node.setContentSize(32, 32);
+			GameManager.playEffect('audio/powerDown');
 			this.invincibleTimer = this.invincibleSeconds;
 			return;
 		}
@@ -258,6 +273,7 @@ export default class PlayerController extends cc.Component {
 		this.moveDirection = 0;
 
 		if (this.dieSound) this.dieSound.play();
+		else GameManager.playEffect('audio/loseOneLife');
 
 		// Stop all physical motion immediately.  The collider is temporarily
 		// disabled so enemies cannot keep pushing Mario while he is dead or
@@ -277,6 +293,7 @@ export default class PlayerController extends cc.Component {
 		this.node.setPosition(this.initialPosition.x, this.initialPosition.y);
 		this.node.scaleX = 1;
 		this.node.scaleY = 1;
+		this.node.setContentSize(32, 32);
 		this.isBig = false;
 		this.isDeadOrReborn = false;
 		this.invincibleTimer = 0;
@@ -294,10 +311,12 @@ export default class PlayerController extends cc.Component {
 		this.playAnimation('idle');
 	}
 
+
 	private reborn() {
 		this.node.setPosition(this.initialPosition.x, this.initialPosition.y);
 		this.node.scaleX = 1;
 		this.node.scaleY = 1;
+		this.node.setContentSize(32, 32);
 		this.isBig = false;
 		this.isDeadOrReborn = false;
 		this.invincibleTimer = this.invincibleSeconds;
@@ -330,9 +349,60 @@ export default class PlayerController extends cc.Component {
 		}
 	}
 
-	private playAnimation(name: string) {
-		if (!this.anim) return;
+	private loadSpriteAtlases() {
+		cc.loader.loadRes('player/mario_small', cc.SpriteAtlas, (err: Error, atlas: cc.SpriteAtlas) => {
+			if (!err && atlas) {
+				this.smallAtlas = atlas;
+				this.setPlayerFrame('idle', 0);
+			}
+		});
 
+		cc.loader.loadRes('player/mario_big', cc.SpriteAtlas, (err: Error, atlas: cc.SpriteAtlas) => {
+			if (!err && atlas) this.bigAtlas = atlas;
+		});
+	}
+
+	private updateFrameAnimation(dt: number) {
+		if (!this.sprite) return;
+
+		this.animTimer += dt;
+		if (this.currentAnimName === 'walk') {
+			if (this.animTimer >= 0.1) {
+				this.animTimer = 0;
+				this.animFrameIndex = (this.animFrameIndex + 1) % 3;
+				this.setPlayerFrame('walk', this.animFrameIndex);
+			}
+		} else if (this.currentAnimName === 'jump') {
+			this.setPlayerFrame('jump', 0);
+		} else {
+			this.setPlayerFrame('idle', 0);
+		}
+	}
+
+	private setPlayerFrame(animName: string, index: number) {
+		if (!this.sprite) return;
+
+		const atlas = this.isBig ? this.bigAtlas : this.smallAtlas;
+		if (!atlas) return;
+
+		const prefix = this.isBig ? 'mario_big_' : 'mario_small_';
+		let frameNumbers: number[] = [0];
+		if (animName === 'walk') frameNumbers = [1, 2, 3];
+		else if (animName === 'jump') frameNumbers = [5];
+
+		const frameName = prefix + frameNumbers[Math.min(index, frameNumbers.length - 1)] + '.png';
+		const frame = atlas.getSpriteFrame(frameName) || atlas.getSpriteFrame(prefix + '0.png');
+		if (frame) this.sprite.spriteFrame = frame;
+	}
+
+	private playAnimation(name: string) {
+		if (this.currentAnimName !== name) {
+			this.currentAnimName = name;
+			this.animTimer = 999;
+			this.animFrameIndex = 0;
+		}
+
+		if (!this.anim) return;
 		const state = this.anim.getAnimationState(name);
 		if (state && !state.isPlaying) this.anim.play(name);
 	}

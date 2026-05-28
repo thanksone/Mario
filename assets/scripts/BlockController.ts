@@ -90,6 +90,7 @@ export default class BlockController extends cc.Component {
 		this.isTriggered = true;
 
 		if (this.hitSound) this.hitSound.play();
+		else GameManager.playEffect('audio/powerUpAppear');
 		if (GameManager.instance) GameManager.instance.addScore(this.scoreValue);
 
 		this.bumpBlock();

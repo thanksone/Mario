@@ -13,6 +13,8 @@ enum GameState {
 export default class GameManager extends cc.Component {
 	public static instance: GameManager = null;
 
+	private static bgmId: number = -1;
+
 	@property(cc.Label)
 	public scoreLabel: cc.Label = null;
 
@@ -102,6 +104,7 @@ export default class GameManager extends cc.Component {
 	start() {
 		this.resetGameData();
 		this.resetLevelObjects();
+		this.playBGM();
 		this.showStartMenu();
 		this.updateUI();
 	}
@@ -164,6 +167,7 @@ export default class GameManager extends cc.Component {
 
 	public startLevel(levelName: string = this.firstLevelSceneName) {
 		this.unschedule(this.countdownTimer);
+		this._lives = this.startLives;
 		this._timer = this.startTime;
 
 		const currentScene = cc.director.getScene();
@@ -184,6 +188,7 @@ export default class GameManager extends cc.Component {
 
 	public restartCurrentLevel() {
 		this.unschedule(this.countdownTimer);
+		this._lives = this.startLives;
 		this._timer = this.startTime;
 		this.resetLevelObjects();
 		this.setState(GameState.Playing);
@@ -228,6 +233,7 @@ export default class GameManager extends cc.Component {
 
 	public gameOver() {
 		this.unschedule(this.countdownTimer);
+		GameManager.playEffect('audio/Game Over');
 		this.setState(GameState.GameOver);
 		cc.director.emit('game_over');
 	}
@@ -235,6 +241,7 @@ export default class GameManager extends cc.Component {
 	public levelClear() {
 		if (this._state !== GameState.Playing) return;
 
+		GameManager.playEffect('audio/levelClear');
 		this.addScore(this._timer * 10);
 		this.unschedule(this.countdownTimer);
 		this.setState(GameState.LevelClear);
@@ -244,6 +251,25 @@ export default class GameManager extends cc.Component {
 	public returnToMenu() {
 		this.resetGameData();
 		this.showStartMenu();
+	}
+
+	private playBGM() {
+		if (GameManager.bgmId !== -1) return;
+
+		cc.loader.loadRes('audio/bgm_1', cc.AudioClip, (err: Error, clip: cc.AudioClip) => {
+			if (!err && clip) {
+				GameManager.bgmId = cc.audioEngine.playMusic(clip, true);
+				cc.audioEngine.setMusicVolume(0.45);
+			}
+		});
+	}
+
+	public static playEffect(path: string, volume: number = 1) {
+		cc.loader.loadRes(path, cc.AudioClip, (err: Error, clip: cc.AudioClip) => {
+			if (!err && clip) {
+				cc.audioEngine.playEffect(clip, false);
+			}
+		});
 	}
 
 	private updateUI() {

@@ -21,6 +21,10 @@ export default class EnemyController extends cc.Component {
 
 	private rb: cc.RigidBody = null;
 	private anim: cc.Animation = null;
+	private sprite: cc.Sprite = null;
+	private atlas: cc.SpriteAtlas = null;
+	private animTimer: number = 0;
+	private animFrameIndex: number = 0;
 	private _isKilled: boolean = false;
 	private initialPosition: cc.Vec2 = cc.v2(0, 0);
 	private initialScaleX: number = 1;
@@ -32,12 +36,14 @@ export default class EnemyController extends cc.Component {
 	onLoad() {
 		this.rb = this.getComponent(cc.RigidBody);
 		this.anim = this.getComponent(cc.Animation);
+		this.sprite = this.getComponent(cc.Sprite);
 		this.initialPosition = cc.v2(this.node.x, this.node.y);
 		this.initialScaleX = this.node.scaleX;
 		this.initialScaleY = this.node.scaleY;
 		this.initialSpeed = this.speed;
 
 		if (this.rb) this.rb.enabledContactListener = true;
+		this.loadAtlas();
 		cc.director.on('level_start', this.resetEnemy, this);
 	}
 
@@ -66,6 +72,7 @@ export default class EnemyController extends cc.Component {
 
 		const sx = Math.abs(this.node.scaleX);
 		this.node.scaleX = this.speed < 0 ? -sx : sx;
+		this.updateFrameAnimation(cc.director.getDeltaTime());
 
 		const player = cc.find('Canvas/World/Player');
 		if (player && this.node.getBoundingBoxToWorld().intersects(player.getBoundingBoxToWorld())) {
@@ -122,11 +129,13 @@ export default class EnemyController extends cc.Component {
 		if (collider) collider.enabled = false;
 
 		if (this.stompSound) this.stompSound.play();
+		else GameManager.playEffect('audio/stomp');
 		if (GameManager.instance) GameManager.instance.addScore(this.scoreValue);
 
 		if (this.anim && this.anim.getAnimationState('dead')) {
 			this.anim.play('dead');
 		}
+		this.setFrame(2);
 
 		this.node.scaleY = Math.max(0.25, Math.abs(this.node.scaleY) * 0.35);
 		this.scheduleOnce(() => {
@@ -151,5 +160,33 @@ export default class EnemyController extends cc.Component {
 			this.rb.linearVelocity = cc.v2(0, 0);
 			this.rb.angularVelocity = 0;
 		}
+		this.setFrame(0);
+	}
+
+	private loadAtlas() {
+		cc.loader.loadRes('enemies/Goomba', cc.SpriteAtlas, (err: Error, atlas: cc.SpriteAtlas) => {
+			if (!err && atlas) {
+				this.atlas = atlas;
+				this.setFrame(0);
+			}
+		});
+	}
+
+	private updateFrameAnimation(dt: number) {
+		if (!this.sprite || !this.atlas || this._isKilled) return;
+
+		this.animTimer += dt;
+		if (this.animTimer < 0.16) return;
+
+		this.animTimer = 0;
+		this.animFrameIndex = (this.animFrameIndex + 1) % 2;
+		this.setFrame(this.animFrameIndex);
+	}
+
+	private setFrame(index: number) {
+		if (!this.sprite || !this.atlas) return;
+
+		const frame = this.atlas.getSpriteFrame('Goomba_' + index + '.png') || this.atlas.getSpriteFrame('Goomba_0.png');
+		if (frame) this.sprite.spriteFrame = frame;
 	}
 }

@@ -86,6 +86,7 @@ export default class MushroomController extends cc.Component {
 
 		this.collected = true;
 		if (this.collectSound) this.collectSound.play();
+		else GameManager.playEffect('audio/PowerUp');
 		this.node.destroy();
 	}
 
