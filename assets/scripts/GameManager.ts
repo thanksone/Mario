@@ -91,9 +91,23 @@ export default class GameManager extends cc.Component {
 
 		const groundFolder = cc.find('Canvas/World/Ground');
 		if (groundFolder) {
-			groundFolder.opacity = 0;
+			// Keep the parent visible because opacity affects children too.
+			// Only disable the placeholder Sprite on the parent Ground node.
+			groundFolder.opacity = 255;
 			const sp = groundFolder.getComponent(cc.Sprite);
 			if (sp) sp.enabled = false;
+
+			const realGround = groundFolder.getChildByName('Ground_01');
+			if (realGround) {
+				realGround.active = true;
+				realGround.opacity = 255;
+				const realSprite = realGround.getComponent(cc.Sprite);
+				if (realSprite) realSprite.enabled = true;
+				const realCollider = realGround.getComponent(cc.PhysicsCollider);
+				if (realCollider) realCollider.enabled = true;
+				const realBody = realGround.getComponent(cc.RigidBody);
+				if (realBody) realBody.enabled = true;
+			}
 		}
 
 		const oldMushroom = cc.find('Canvas/World/Items/Mushroom');

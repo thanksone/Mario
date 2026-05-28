@@ -6,11 +6,11 @@ import MushroomController from './MushroomController';
 
 @ccclass
 export default class PlayerController extends cc.Component {
-	@property
-	public moveSpeed: number = 250;
-
-	@property
-	public jumpForce: number = 600;
+	// Not marked with @property on purpose.
+	// If these are @property, Cocos Creator keeps old values serialized in Level1.fire
+	// and changing this script will appear to do nothing. Change these two numbers here.
+	public moveSpeed: number = 150;
+	public jumpForce: number = 400;
 
 	@property
 	public stompBounceForce: number = 450;
