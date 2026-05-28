@@ -99,7 +99,9 @@ export default class EnemyController extends cc.Component {
 
 	onPreSolve(contact: cc.PhysicsContact, selfCollider: cc.PhysicsCollider, otherCollider: cc.PhysicsCollider) {
 		const name = otherCollider.node.name.toLowerCase();
-		if (name.indexOf('mushroom') >= 0) {
+		// Enemy-player interaction is handled by PlayerController.handleEnemyContact.
+		// Disable the physical collision so the enemy cannot push Mario.
+		if (otherCollider.node.getComponent('PlayerController') || name.indexOf('mushroom') >= 0) {
 			contact.disabled = true;
 		}
 	}

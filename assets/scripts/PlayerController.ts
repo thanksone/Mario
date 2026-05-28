@@ -154,6 +154,15 @@ export default class PlayerController extends cc.Component {
 		}
 	}
 
+	onPreSolve(contact: cc.PhysicsContact, selfCollider: cc.PhysicsCollider, otherCollider: cc.PhysicsCollider) {
+		// Enemy damage/stomp is handled by script logic. Disable the physical
+		// enemy-player collision so Goomba cannot push Mario, especially while
+		// Mario is dying, reborn, invincible, or during game over.
+		if (otherCollider.node.getComponent(EnemyController)) {
+			contact.disabled = true;
+		}
+	}
+
 	public handleEnemyContact(enemy: EnemyController) {
 		if (!GameManager.instance || !GameManager.instance.isPlaying || this.isDeadOrReborn) return;
 		if (!enemy || enemy.isKilled) return;
@@ -249,7 +258,17 @@ export default class PlayerController extends cc.Component {
 		this.moveDirection = 0;
 
 		if (this.dieSound) this.dieSound.play();
-		if (this.rb) this.rb.linearVelocity = cc.v2(0, 0);
+
+		// Stop all physical motion immediately.  The collider is temporarily
+		// disabled so enemies cannot keep pushing Mario while he is dead or
+		// while the Game Over panel is showing.
+		const collider = this.getComponent(cc.PhysicsCollider);
+		if (collider) collider.enabled = false;
+		if (this.rb) {
+			this.rb.linearVelocity = cc.v2(0, 0);
+			this.rb.angularVelocity = 0;
+		}
+
 		if (GameManager.instance) GameManager.instance.playerDie();
 	}
 
@@ -263,6 +282,9 @@ export default class PlayerController extends cc.Component {
 		this.invincibleTimer = 0;
 		this.groundContactCount = 0;
 		this.moveDirection = 0;
+
+		const collider = this.getComponent(cc.PhysicsCollider);
+		if (collider) collider.enabled = true;
 
 		if (this.rb) {
 			this.rb.enabled = true;
@@ -281,6 +303,9 @@ export default class PlayerController extends cc.Component {
 		this.invincibleTimer = this.invincibleSeconds;
 		this.groundContactCount = 0;
 		this.moveDirection = 0;
+
+		const collider = this.getComponent(cc.PhysicsCollider);
+		if (collider) collider.enabled = true;
 
 		if (this.rb) {
 			this.rb.linearVelocity = cc.v2(0, 0);
