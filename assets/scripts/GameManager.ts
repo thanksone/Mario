@@ -61,6 +61,7 @@ export default class GameManager extends cc.Component {
 	public get isPlaying(): boolean { return this._state === GameState.Playing; }
 
 	onLoad() {
+		this.cleanupPlaceholderSceneNodes();
 		cc.director.getPhysicsManager().enabled = true;
 
 		if (GameManager.instance && GameManager.instance !== this) {
@@ -68,6 +69,34 @@ export default class GameManager extends cc.Component {
 			return;
 		}
 		GameManager.instance = this;
+	}
+
+
+	private cleanupPlaceholderSceneNodes() {
+		const names = ['Wall_Left', 'Wall_Right'];
+		for (const n of names) {
+			const node = cc.find('Canvas/World/Walls/' + n);
+			if (node) {
+				node.active = false;
+				node.opacity = 0;
+				const col = node.getComponent(cc.PhysicsBoxCollider);
+				if (col) col.enabled = false;
+				const rb = node.getComponent(cc.RigidBody);
+				if (rb) rb.enabled = false;
+			}
+		}
+
+		const groundFolder = cc.find('Canvas/World/Ground');
+		if (groundFolder) {
+			groundFolder.opacity = 0;
+			const sp = groundFolder.getComponent(cc.Sprite);
+			if (sp) sp.enabled = false;
+		}
+
+		const oldMushroom = cc.find('Canvas/World/Items/Mushroom');
+		if (oldMushroom) {
+			oldMushroom.destroy();
+		}
 	}
 
 	start() {
