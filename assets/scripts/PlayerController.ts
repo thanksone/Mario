@@ -283,6 +283,7 @@ export default class PlayerController extends cc.Component {
 		if (this.rb) {
 			this.rb.linearVelocity = cc.v2(0, 0);
 			this.rb.angularVelocity = 0;
+			this.rb.enabled = false;
 		}
 
 		if (GameManager.instance) GameManager.instance.playerDie();
@@ -290,6 +291,7 @@ export default class PlayerController extends cc.Component {
 
 
 	private resetPlayerForNewLevel() {
+		this.node.active = true;
 		this.node.setPosition(this.initialPosition.x, this.initialPosition.y);
 		this.node.scaleX = 1;
 		this.node.scaleY = 1;
@@ -313,6 +315,7 @@ export default class PlayerController extends cc.Component {
 
 
 	private reborn() {
+		this.node.active = true;
 		this.node.setPosition(this.initialPosition.x, this.initialPosition.y);
 		this.node.scaleX = 1;
 		this.node.scaleY = 1;
@@ -327,6 +330,7 @@ export default class PlayerController extends cc.Component {
 		if (collider) collider.enabled = true;
 
 		if (this.rb) {
+			this.rb.enabled = true;
 			this.rb.linearVelocity = cc.v2(0, 0);
 			this.rb.angularVelocity = 0;
 		}

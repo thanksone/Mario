@@ -55,6 +55,7 @@ export default class GameManager extends cc.Component {
 	private _lives: number = 3;
 	private _timer: number = 400;
 	private _state: GameState = GameState.Menu;
+	private respawnScheduled: boolean = false;
 
 	public get score(): number { return this._score; }
 	public get lives(): number { return this._lives; }
@@ -122,6 +123,9 @@ export default class GameManager extends cc.Component {
 	}
 
 	private resetLevelObjects() {
+		this.respawnScheduled = false;
+		this.unschedule(this.emitPlayerReborn);
+
 		// Remove spawned power-ups. The mushroom prefab is stored in assets/prefabs,
 		// so it is safe to clear runtime children under World/Items.
 		const items = cc.find('Canvas/World/Items');
@@ -219,6 +223,7 @@ export default class GameManager extends cc.Component {
 
 	public playerDie() {
 		if (this._state !== GameState.Playing) return;
+		if (this.respawnScheduled) return;
 
 		this._lives--;
 		this.updateUI();
@@ -228,11 +233,24 @@ export default class GameManager extends cc.Component {
 			return;
 		}
 
-		cc.director.emit('player_reborn');
+		// Do not respawn in the same physics/contact frame.  If Mario is
+		// overlapping an enemy when he dies, immediate respawn can cause Cocos 2.4
+		// to keep him in a bad contact state or damage him again before the next
+		// frame.  Wait briefly, then let PlayerController rebuild the body/collider.
+		this.respawnScheduled = true;
+		this.scheduleOnce(this.emitPlayerReborn, 0.7);
 	}
+
+	private emitPlayerReborn = () => {
+		this.respawnScheduled = false;
+		if (this._state !== GameState.Playing) return;
+		cc.director.emit('player_reborn');
+	};
 
 	public gameOver() {
 		this.unschedule(this.countdownTimer);
+		this.respawnScheduled = false;
+		this.unschedule(this.emitPlayerReborn);
 		GameManager.playEffect('audio/Game Over');
 		this.setState(GameState.GameOver);
 		cc.director.emit('game_over');
