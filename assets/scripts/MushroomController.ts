@@ -15,7 +15,15 @@ export default class MushroomController extends cc.Component {
 
 	onLoad() {
 		this.rb = this.getComponent(cc.RigidBody);
-		if (this.rb) this.rb.enabledContactListener = true;
+		if (this.rb) {
+			this.rb.enabledContactListener = true;
+			this.rb.gravityScale = 0;
+		}
+
+		const collider = this.getComponent(cc.PhysicsCollider);
+		if (collider) collider.sensor = true;
+
+		this.node.zIndex = 30;
 		cc.director.on('level_start', this.removeSpawnedMushroom, this);
 	}
 
@@ -25,19 +33,21 @@ export default class MushroomController extends cc.Component {
 
 	update() {
 		if (this.collected) return;
+
 		if (!GameManager.instance || !GameManager.instance.isPlaying) {
 			if (this.rb) this.rb.linearVelocity = cc.v2(0, 0);
 			return;
 		}
 
-		if (this.node.y < -360) {
+		if (this.node.x < -520 || this.node.x > 760 || this.node.y < -360) {
 			this.node.destroy();
 			return;
 		}
 
 		if (this.rb) {
-			const v = this.rb.linearVelocity;
-			this.rb.linearVelocity = cc.v2(this.speed, v.y);
+			this.rb.linearVelocity = cc.v2(this.speed, 0);
+		} else {
+			this.node.x += this.speed * cc.director.getDeltaTime();
 		}
 
 		const player = cc.find('Canvas/World/Player');
@@ -48,7 +58,6 @@ export default class MushroomController extends cc.Component {
 
 	onBeginContact(contact: cc.PhysicsContact, selfCollider: cc.PhysicsCollider, otherCollider: cc.PhysicsCollider) {
 		if (this.collected) return;
-		if (!GameManager.instance || !GameManager.instance.isPlaying) return;
 
 		const player: any = otherCollider.node.getComponent('PlayerController');
 		if (player) {
@@ -56,21 +65,12 @@ export default class MushroomController extends cc.Component {
 			return;
 		}
 
-		const name = otherCollider.node.name.toLowerCase();
-		if (name.indexOf('enemy') >= 0 || name.indexOf('goomba') >= 0) {
-			contact.disabled = true;
-			return;
-		}
-
-		const shouldTurn = name.indexOf('wall') >= 0 || name.indexOf('block') >= 0 || name.indexOf('pipe') >= 0 || name.indexOf('enemyturn') >= 0;
-		if (shouldTurn) this.speed = -this.speed;
+		// Sensor mushroom should never physically push enemies/blocks.
+		contact.disabled = true;
 	}
 
-	onPreSolve(contact: cc.PhysicsContact, selfCollider: cc.PhysicsCollider, otherCollider: cc.PhysicsCollider) {
-		const name = otherCollider.node.name.toLowerCase();
-		if (name.indexOf('enemy') >= 0 || name.indexOf('goomba') >= 0) {
-			contact.disabled = true;
-		}
+	onPreSolve(contact: cc.PhysicsContact) {
+		contact.disabled = true;
 	}
 
 	private collectByPlayer(playerNode: cc.Node) {
@@ -90,7 +90,9 @@ export default class MushroomController extends cc.Component {
 	}
 
 	private removeSpawnedMushroom() {
-		// Runtime mushrooms should not remain when starting/restarting/returning to menu.
-		this.node.destroy();
+		// Destroy runtime mushrooms when starting/restarting.  Keep inactive editor template nodes alone.
+		if (this.node.activeInHierarchy || this.node.name.indexOf('Spawned') >= 0) {
+			this.node.destroy();
+		}
 	}
 }
