@@ -19,19 +19,47 @@ export default class BlockController extends cc.Component {
 	private isTriggered: boolean = false;
 	private originalPosition: cc.Vec2 = cc.v2(0, 0);
 	private originalColor: cc.Color = cc.Color.WHITE;
+	private playerNode: cc.Node = null;
 
 	onLoad() {
 		this.originalPosition = cc.v2(this.node.x, this.node.y);
+
 		const sprite = this.getComponent(cc.Sprite);
 		if (sprite) this.originalColor = sprite.node.color.clone();
 
 		const rb = this.getComponent(cc.RigidBody);
 		if (rb) rb.enabledContactListener = true;
+
+		const collider = this.getComponent(cc.PhysicsCollider);
+		if (collider) collider.sensor = false;
+
 		cc.director.on('level_start', this.resetBlock, this);
+	}
+
+	start() {
+		this.playerNode = cc.find('Canvas/World/Player');
 	}
 
 	onDestroy() {
 		cc.director.off('level_start', this.resetBlock, this);
+	}
+
+	update() {
+		// Backup detector. In Cocos Creator 2.4, the contact callback on a static
+		// block can be missed or fire after the physics solver already separates
+		// the player. This check makes the block trigger reliably when Mario's head
+		// reaches the bottom of the block while he is below it.
+		if (this.isTriggered) return;
+		if (!GameManager.instance || !GameManager.instance.isPlaying) return;
+
+		if (!this.playerNode || !this.playerNode.isValid) {
+			this.playerNode = cc.find('Canvas/World/Player');
+		}
+		if (!this.playerNode) return;
+
+		if (this.isHitFromBelow(this.playerNode)) {
+			this.triggerBlock();
+		}
 	}
 
 	onBeginContact(contact: cc.PhysicsContact, selfCollider: cc.PhysicsCollider, otherCollider: cc.PhysicsCollider) {
@@ -50,13 +78,18 @@ export default class BlockController extends cc.Component {
 		const playerBox = playerNode.getBoundingBoxToWorld();
 		const blockBox = this.node.getBoundingBoxToWorld();
 		const playerRb = playerNode.getComponent(cc.RigidBody);
-		const movingUp = !playerRb || playerRb.linearVelocity.y >= -20;
 
+		// Player must be below the block and moving upward / just got stopped by the block.
+		const verticalVelocity = playerRb ? playerRb.linearVelocity.y : 0;
+		const movingUpOrJustStopped = verticalVelocity > -120;
+
+		// Use generous tolerance because Cocos 2.4 contact is resolved before/after callbacks
+		// depending on the frame. Strict yMax <= yMin + 18 often fails.
 		const playerBelowBlock = playerNode.y < this.node.y;
-		const topNearBlockBottom = playerBox.yMax <= blockBox.yMin + 18;
-		const horizontallyOverlapping = playerBox.xMax > blockBox.xMin + 4 && playerBox.xMin < blockBox.xMax - 4;
+		const headCloseToBlockBottom = playerBox.yMax >= blockBox.yMin - 30 && playerBox.yMax <= blockBox.yMin + 45;
+		const horizontallyOverlapping = playerBox.xMax > blockBox.xMin + 2 && playerBox.xMin < blockBox.xMax - 2;
 
-		return movingUp && playerBelowBlock && topNearBlockBottom && horizontallyOverlapping;
+		return movingUpOrJustStopped && playerBelowBlock && headCloseToBlockBottom && horizontallyOverlapping;
 	}
 
 	private triggerBlock() {
@@ -80,20 +113,29 @@ export default class BlockController extends cc.Component {
 	}
 
 	private spawnMushroom() {
-		if (!this.mushroomPrefab) return;
+		if (!this.mushroomPrefab) {
+			cc.warn('[BlockController] mushroomPrefab is not assigned on ' + this.node.name);
+			return;
+		}
 
 		const mushroom = cc.instantiate(this.mushroomPrefab);
 		let targetParent = this.node.parent;
-		const world = this.node.parent ? this.node.parent.parent : null;
+		const world = cc.find('Canvas/World');
 		if (world) {
-			const items = world.getChildByName('Items');
-			if (items) targetParent = items;
+			let items = world.getChildByName('Items');
+			if (!items) {
+				items = new cc.Node('Items');
+				world.addChild(items);
+			}
+			targetParent = items;
 		}
 
 		targetParent.addChild(mushroom);
+
 		const worldPos = this.node.convertToWorldSpaceAR(cc.v2(0, this.spawnOffsetY));
 		const localPos = targetParent.convertToNodeSpaceAR(worldPos);
 		mushroom.setPosition(localPos);
+		mushroom.active = true;
 
 		const rb = mushroom.getComponent(cc.RigidBody);
 		if (rb) {
@@ -106,6 +148,7 @@ export default class BlockController extends cc.Component {
 		this.isTriggered = false;
 		this.unscheduleAllCallbacks();
 		this.node.setPosition(this.originalPosition);
+
 		const sprite = this.getComponent(cc.Sprite);
 		if (sprite) sprite.node.color = this.originalColor;
 	}
