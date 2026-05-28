@@ -44,14 +44,12 @@ export default class PlayerController extends cc.Component {
 		this.anim = this.getComponent(cc.Animation);
 		this.initialPosition = cc.v2(this.node.x, this.node.y);
 
-		const collider = this.getComponent(cc.PhysicsCollider);
-		if (collider) {
-			collider.enabledContactListener = true;
-		}
+		if (this.rb) this.rb.enabledContactListener = true;
 
 		cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
 		cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this.onKeyUp, this);
 		cc.director.on('player_reborn', this.reborn, this);
+		cc.director.on('level_start', this.resetPlayerForNewLevel, this);
 		cc.director.on('game_over', this.stopPlayer, this);
 		cc.director.on('level_clear', this.stopPlayer, this);
 	}
@@ -60,6 +58,7 @@ export default class PlayerController extends cc.Component {
 		cc.systemEvent.off(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
 		cc.systemEvent.off(cc.SystemEvent.EventType.KEY_UP, this.onKeyUp, this);
 		cc.director.off('player_reborn', this.reborn, this);
+		cc.director.off('level_start', this.resetPlayerForNewLevel, this);
 		cc.director.off('game_over', this.stopPlayer, this);
 		cc.director.off('level_clear', this.stopPlayer, this);
 	}
@@ -100,7 +99,7 @@ export default class PlayerController extends cc.Component {
 	}
 
 	private tryJump() {
-		if (!this.rb || !this.canJump()) return;
+		if (!this.rb || !this.isGrounded()) return;
 
 		const v = this.rb.linearVelocity;
 		this.rb.linearVelocity = cc.v2(v.x, this.jumpForce);
@@ -144,7 +143,7 @@ export default class PlayerController extends cc.Component {
 			return;
 		}
 
-		if (this.isGroundObject(otherCollider) && this.node.y >= otherCollider.node.y) {
+		if (this.isStandingOn(otherCollider)) {
 			this.groundContactCount++;
 		}
 	}
@@ -155,18 +154,29 @@ export default class PlayerController extends cc.Component {
 		}
 	}
 
-	private handleEnemyContact(enemy: EnemyController) {
-		if (enemy.isKilled) return;
+	public handleEnemyContact(enemy: EnemyController) {
+		if (!GameManager.instance || !GameManager.instance.isPlaying || this.isDeadOrReborn) return;
+		if (!enemy || enemy.isKilled) return;
 
-		const falling = !!this.rb && this.rb.linearVelocity.y <= 0;
-		const playerAboveEnemy = this.node.y > enemy.node.y + 8;
-
-		if (falling && playerAboveEnemy) {
+		if (this.isStompingEnemy(enemy)) {
 			enemy.stompKilled();
 			this.bounceAfterStomp();
 		} else {
 			this.takeDamage(false);
 		}
+	}
+
+	private isStompingEnemy(enemy: EnemyController): boolean {
+		const playerBox = this.node.getBoundingBoxToWorld();
+		const enemyBox = enemy.node.getBoundingBoxToWorld();
+		const fallingOrStill = !this.rb || this.rb.linearVelocity.y <= 80;
+
+		// Mario kills the enemy only when his feet are above the enemy's head.
+		const feetNearEnemyHead = playerBox.yMin >= enemyBox.yMax - 16;
+		const centerAboveEnemy = this.node.y > enemy.node.y;
+		const horizontalOverlap = playerBox.xMax > enemyBox.xMin + 6 && playerBox.xMin < enemyBox.xMax - 6;
+
+		return fallingOrStill && feetNearEnemyHead && centerAboveEnemy && horizontalOverlap;
 	}
 
 	private bounceAfterStomp() {
@@ -185,17 +195,23 @@ export default class PlayerController extends cc.Component {
 			name.indexOf('tile') >= 0;
 	}
 
-	private canJump(): boolean {
-		if (this.groundContactCount > 0) return true;
-		if (!this.rb) return false;
+	private isStandingOn(otherCollider: cc.PhysicsCollider): boolean {
+		if (!this.isGroundObject(otherCollider)) return false;
 
-		// Backup check: if the player is almost not moving vertically, allow jump.
-		// This avoids the common Cocos 2.4 problem where contact count is missed.
-		return Math.abs(this.rb.linearVelocity.y) < 5;
+		const playerBox = this.node.getBoundingBoxToWorld();
+		const otherBox = otherCollider.node.getBoundingBoxToWorld();
+		const horizontalOverlap = playerBox.xMax > otherBox.xMin + 4 && playerBox.xMin < otherBox.xMax - 4;
+		const playerFeetAboveTop = playerBox.yMin >= otherBox.yMax - 14;
+
+		return horizontalOverlap && playerFeetAboveTop && this.node.y > otherCollider.node.y;
 	}
 
 	private isGrounded(): boolean {
-		return this.groundContactCount > 0 || (!!this.rb && Math.abs(this.rb.linearVelocity.y) < 5);
+		if (this.groundContactCount > 0) return true;
+
+		// Backup: if contact count is not updated, allow jumping when nearly stopped
+		// vertically.  This fixes Cocos 2.4 contact-normal instability.
+		return !!this.rb && Math.abs(this.rb.linearVelocity.y) < 2;
 	}
 
 	public growBig() {
@@ -235,6 +251,25 @@ export default class PlayerController extends cc.Component {
 		if (this.dieSound) this.dieSound.play();
 		if (this.rb) this.rb.linearVelocity = cc.v2(0, 0);
 		if (GameManager.instance) GameManager.instance.playerDie();
+	}
+
+
+	private resetPlayerForNewLevel() {
+		this.node.setPosition(this.initialPosition.x, this.initialPosition.y);
+		this.node.scaleX = 1;
+		this.node.scaleY = 1;
+		this.isBig = false;
+		this.isDeadOrReborn = false;
+		this.invincibleTimer = 0;
+		this.groundContactCount = 0;
+		this.moveDirection = 0;
+
+		if (this.rb) {
+			this.rb.enabled = true;
+			this.rb.linearVelocity = cc.v2(0, 0);
+			this.rb.angularVelocity = 0;
+		}
+		this.playAnimation('idle');
 	}
 
 	private reborn() {

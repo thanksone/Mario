@@ -9,8 +9,6 @@ export default class CameraController extends cc.Component {
 	@property(cc.Node)
 	public playerNode: cc.Node = null;
 
-	// These are camera-center limits. If the background is only one screen wide,
-	// the script will automatically clamp the camera to x = 0 to avoid black area.
 	@property
 	public minX: number = 0;
 
@@ -24,51 +22,19 @@ export default class CameraController extends cc.Component {
 	public minY: number = 0;
 
 	@property
-	public maxY: number = 600;
+	public maxY: number = 0;
 
 	@property
 	public smoothFactor: number = 8;
 
-	private getCameraXLimits(): { min: number, max: number } {
-		let minLimit = this.minX;
-		let maxLimit = this.maxX;
-
-		const canvas = cc.find('Canvas');
-		const background = cc.find('Canvas/World/Background');
-
-		if (canvas && background) {
-			const viewHalfWidth = canvas.width * 0.5;
-			const bgLeft = background.x - background.anchorX * background.width;
-			const bgRight = background.x + (1 - background.anchorX) * background.width;
-
-			const bgMin = bgLeft + viewHalfWidth;
-			const bgMax = bgRight - viewHalfWidth;
-
-			if (bgMax >= bgMin) {
-				minLimit = Math.max(minLimit, bgMin);
-				maxLimit = Math.min(maxLimit, bgMax);
-			} else {
-				// Background is not wider than the screen. Keep camera centered.
-				minLimit = 0;
-				maxLimit = 0;
-			}
-		}
-
-		if (maxLimit < minLimit) {
-			const middle = (minLimit + maxLimit) * 0.5;
-			minLimit = middle;
-			maxLimit = middle;
-		}
-
-		return { min: minLimit, max: maxLimit };
-	}
-
 	update(dt: number) {
 		if (!this.playerNode) return;
 
-		const limits = this.getCameraXLimits();
-		const targetX = clamp(this.playerNode.x, limits.min, limits.max);
-		const targetY = this.followY ? clamp(this.playerNode.y, this.minY, this.maxY) : this.node.y;
+		// If minX == maxX, the camera is locked. This project currently uses a
+		// one-screen background, so locking prevents the right half becoming black
+		// and keeps UI labels from drifting away.
+		const targetX = this.maxX <= this.minX ? this.minX : clamp(this.playerNode.x, this.minX, this.maxX);
+		const targetY = this.followY ? (this.maxY <= this.minY ? this.minY : clamp(this.playerNode.y, this.minY, this.maxY)) : this.node.y;
 		const t = Math.min(1, this.smoothFactor * dt);
 
 		this.node.x = this.node.x + (targetX - this.node.x) * t;
