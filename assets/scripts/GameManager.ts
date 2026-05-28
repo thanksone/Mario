@@ -60,15 +60,17 @@ export default class GameManager extends cc.Component {
     public get state(): GameState { return this._state; }
     public get isPlaying(): boolean { return this._state === GameState.Playing; }
 
-onLoad() {
-    cc.director.getPhysicsManager().enabled = true;
+    onLoad() {
+        const physicsManager = cc.director.getPhysicsManager();
+        physicsManager.enabled = true;
+        physicsManager.gravity = cc.v2(0, -320);
 
-    if (GameManager.instance && GameManager.instance !== this) {
-        this.node.destroy();
-        return;
+        if (GameManager.instance && GameManager.instance !== this) {
+            this.node.destroy();
+            return;
+        }
+        GameManager.instance = this;
     }
-    GameManager.instance = this;
-}
     start() {
         this.resetGameData();
         this.showStartMenu();

@@ -13,6 +13,9 @@ export default class MushroomController extends cc.Component {
 
     onLoad() {
         this.rb = this.getComponent(cc.RigidBody);
+
+        const collider = this.getComponent(cc.PhysicsCollider);
+        if (collider) collider.enabledContactListener = true;
     }
 
     update() {

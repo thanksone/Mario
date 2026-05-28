@@ -21,6 +21,9 @@ export default class BlockController extends cc.Component {
 
     onLoad() {
         this.originalPosition = cc.v2(this.node.x, this.node.y);
+
+        const collider = this.getComponent(cc.PhysicsCollider);
+        if (collider) collider.enabledContactListener = true;
     }
 
     onBeginContact(contact: cc.PhysicsContact, selfCollider: cc.PhysicsCollider, otherCollider: cc.PhysicsCollider) {

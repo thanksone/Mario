@@ -254,7 +254,7 @@
       "__id__": 6
     },
     "minX": 0,
-    "maxX": 2000,
+    "maxX": 0,
     "followY": false,
     "minY": 0,
     "maxY": 600,
@@ -865,7 +865,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 40,
-      "height": 36
+      "height": 160
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -876,8 +876,8 @@
       "__type__": "TypedArray",
       "ctor": "Float64Array",
       "array": [
-        0,
-        0,
+        -480,
+        -220,
         0,
         0,
         0,
@@ -980,7 +980,7 @@
     "_size": {
       "__type__": "cc.Size",
       "width": 40,
-      "height": 36
+      "height": 160
     },
     "_id": "42XJryU2JNkJ0AGRDkP2++"
   },
@@ -1016,7 +1016,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 40,
-      "height": 36
+      "height": 160
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1027,8 +1027,8 @@
       "__type__": "TypedArray",
       "ctor": "Float64Array",
       "array": [
-        0,
-        0,
+        480,
+        -220,
         0,
         0,
         0,
@@ -1131,7 +1131,7 @@
     "_size": {
       "__type__": "cc.Size",
       "width": 40,
-      "height": 36
+      "height": 160
     },
     "_id": "c5hxILF2dBvoW+IsUJFw+J"
   },
@@ -1721,7 +1721,9 @@
     "stompSound": {
       "__id__": 36
     },
-    "_id": "a7f99mLndPBIHapZNnV3X0"
+    "_id": "a7f99mLndPBIHapZNnV3X0",
+    "minX": -430,
+    "maxX": 430
   },
   {
     "__type__": "cc.RigidBody",
@@ -2169,7 +2171,8 @@
       "width": 40,
       "height": 36
     },
-    "_id": "d2Oe5BCn5Gv5+61EDEs/CN"
+    "_id": "d2Oe5BCn5Gv5+61EDEs/CN",
+    "sensor": true
   },
   {
     "__type__": "2cf29t68f9L27DriI6sF/Ez",
